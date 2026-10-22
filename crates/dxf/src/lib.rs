@@ -178,6 +178,8 @@ pub fn parse(bytes: &[u8]) -> Result<Vec<Tag>> {
 /// the line count, before the text is decoded or any tag allocated, so an oversized file fails in
 /// milliseconds instead of after it has filled memory.
 pub fn parse_with_limit(bytes: &[u8], max_tags: usize) -> Result<Vec<Tag>> {
+    // Some editors and exporters prefix UTF-8 files with a byte order mark; it is not part of the first group code.
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
     if let Some(body) = bytes.strip_prefix(BINARY_SENTINEL) {
         return parse_binary_with_limit(body, max_tags);
     }
@@ -568,6 +570,13 @@ pub fn records(tags: &[Tag]) -> Vec<(String, Vec<Tag>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn utf8_bom_is_ignored() {
+        let tags = parse(b"\xEF\xBB\xBF  0\nSECTION\n  2\nENTITIES\n  0\nENDSEC\n  0\nEOF\n").unwrap();
+        assert_eq!(tags.first().map(|t| t.code), Some(0));
+        assert_eq!(tags.len(), 4);
+    }
 
     #[test]
     fn ascii_roundtrip() {
