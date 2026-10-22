@@ -51,8 +51,10 @@ fn qdim_attaches_like_dimreassociate_and_large_input_is_capped() {
     assert!(assoc_of(&s, &hs[..10]).iter().all(|a| a.len() == 2));
 
     // More than the cap (objects, or distinct points) is refused with nothing created.
+    let more: Vec<[f64; 2]> = (0..=100_001).map(|i| [f64::from(i), 1.0]).collect();
+    let too_many = handles(&s.execute("line", &json!({"points": more})).unwrap());
+    assert_eq!(too_many.len(), 100_001);
     let n = s.doc().unwrap().model.iter().count();
-    let too_many: Vec<Value> = (0..100_001).map(|_| objs[0].clone()).collect();
     let e = s.execute("qdim", &json!({"handles": too_many, "at": [0, 3]})).unwrap_err();
     assert!(e.to_string().contains("100000"), "{e}");
     let vertices: Vec<[f64; 2]> = (0..100_002).map(|i| [f64::from(i), f64::from(i % 2)]).collect();
