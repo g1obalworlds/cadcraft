@@ -299,7 +299,18 @@ pub(crate) fn targets(s: &Session, p: &Value) -> Result<Vec<Handle>> {
     let not_handle = |key: &str, v: &Value| EngineError::Other(format!("`{key}`: {v} is not an object handle (a hex string such as \"1A2\")"));
     match p.get("handles") {
         None | Some(Value::Null) => {}
-        Some(Value::Array(a)) => return a.iter().map(|v| handle(v).ok_or_else(|| not_handle("handles", v))).collect(),
+        Some(Value::Array(a)) => {
+            // Each object once: a repeated handle must not be moved, rotated or copied twice.
+            let mut seen = std::collections::HashSet::new();
+            let mut out = Vec::new();
+            for v in a {
+                let h = handle(v).ok_or_else(|| not_handle("handles", v))?;
+                if seen.insert(h) {
+                    out.push(h);
+                }
+            }
+            return Ok(out);
+        }
         Some(v) => return Err(EngineError::Other(format!("`handles` must be an array of object handles, got {v}"))),
     }
     match p.get("handle") {
