@@ -2539,3 +2539,21 @@ fn drawing_without_insunits_stays_unitless() {
     assert_eq!(insunits(&write_dxf(&Drawing::new_metric())), Some("4".into()));
     assert_eq!(insunits(&write_dxf(&Drawing::new_imperial())), Some("1".into()));
 }
+
+/// A HATCH spline edge with a huge degree is read with the degree limited like a SPLINE's, not
+/// tessellated at O(degree²) per point (which hung the reader).
+#[test]
+fn hatch_spline_edge_huge_degree_reads_quickly() {
+    let n = 2001;
+    let pts: String = (0..n).map(|i| format!("10\n{i}\n20\n{}\n", i % 7)).collect();
+    let text = format!(
+        "0\nSECTION\n2\nENTITIES\n0\nHATCH\n8\n0\n10\n0\n20\n0\n30\n0\n210\n0\n220\n0\n230\n1\n2\nSOLID\n70\n1\n71\n0\n\
+         91\n1\n92\n1\n93\n2\n72\n4\n94\n{}\n73\n0\n74\n0\n95\n0\n96\n{n}\n{pts}97\n0\n\
+         72\n1\n10\n2000\n20\n5\n11\n0\n21\n0\n97\n0\n75\n0\n76\n1\n98\n0\n0\nENDSEC\n0\nEOF\n",
+        n - 1
+    );
+    let start = std::time::Instant::now();
+    let b = read(text.as_bytes(), "h.dxf").unwrap().extents(&Space::Model);
+    assert!(start.elapsed().as_secs() < 5, "hatch spline took {:?}", start.elapsed());
+    assert!(b.max.x > 100.0, "{b:?}");
+}
